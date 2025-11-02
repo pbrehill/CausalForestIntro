@@ -1,0 +1,103 @@
+# Outline for slides
+
+* Introduction
+** What is this set of talks?
+*** What is my purpose here?
+- I think the causal forest and similar methods are really useful for any applied researcher doing causal inference to know about. They allow us to flexibly find treatment effect heterogeneity we would have otherwise missed. However, I think that there is a missing link. The resources that exist right now are pretty advanced and might not be accessible to a lot of the applied researchers who would benefit from the method.
+- My aim here is to give a primer on the causal forest --- what it is, the value it offers researchers, and how to use it --- that is more approachable.
+- Once you've been through this I hope you'll have a better sense of what the causal forest and causal ML in general are, whether they might be useful tools in your work, the ability to apply these methods in your own work, and the ability to go deeper into existing resources with the background knowledge from this set of videos.
+*** Who am I?
+- I come from a reduced form econ background, even more specifically policy evaluation but I hope this can be more broadly useful to all sorts of people.
+*** Who might find this useful?
+- The causal forest is currently used across many fields (show graph from Rehill 2025) and all kinds of applied researchers could find it useful.
+- My focus will be on applied academic researchers and similar (policy). I'll try to stick to my own expertise, I'm not an uplift modelling or marketting expert for example but there might be useful stuff here too.
+- My intention is to give a gentle introduction to using this method for applied researchers. There are lots of really great resources out there. Unfortunately they are designed for the kind of very smart people who could design these methods. I am not that and I'm hoping this will be more accessible and allow you to move on to more advanced resources.
+*** Assumed background knowledge
+- Some background in quantitative research methods focused on causal inference. I'll be talking about:
+  - Causal identification (that is disentangling correlation from causation)
+  - Estimating average treatment effects with regression models (and conditional average treatment effects),
+  - and estimating standard errors for those estimates.
+- If you don't know what those terms mean, go seek out an intro to causal inference. My advice would be start with Cunningham or Angrist and Pischke. You don't need to an in-depth technical knowledge of how these things are done, but you should know what I mean when I use these terms.
+*** Other resources
+I won't go into this too far but here are some other resources that might be useful throughout
+- Causal inference basics like CI The Mixtape, Imbens Rubin, Angrist and Pischke.
+- Causal forest intro stuff
+- ATHEY AND WAGER COURSE, REALLY GOOD, reasonably advanced
+- Wager's textbook
+- Brady Neal's course
+
+** High level, what does a causal forest do?
+- Causal forest is one of many 'causal machine learning' methods that take advances made in computer science and bring them back to explanatory statistics.
+- Broadly speaking these causal machine learning methods do one (or both) of the following two things:
+  - Model out confounding by controlling for variables in a powerful way (we'll come back to this)
+  - Model treatment effect heterogeneity in a flexible way
+  - What makes the causal forest special is that it does the second really well although the widely used implementation actually does both these things.
+
+** Why is this useful?
+- The causal forest is useful in two main ways:
+  - For getting individual level predictions of CATE to use directly (e.g. in marketting, predictive medicine)
+  - For finding patterns in heterogeneity outside of standard deductive heterogeneity testing which relies on pre-specified hypotheses. The causal forest surfaces differences in effect without p-hacking.
+- This second point is the real power of the causal forest, other causal ML methods are probably better for the first, at least in large data environments. I'll touch on these other methods in the future.
+- Basically you can think of the causal forest as 'heterogeneity insurance'. It will surface any situations where some people are benefitting more or less from a program even if you don't know what to look for and even if these relationships are non-linear:
+  - e.g. COVID masking campaign poor translation of resources
+  - e.g. A school implements a program in a different way that better suits that school environment
+  - e.g. multi-dimensional interaction.
+- In practice at least in my field I think theoretical frameworks around heterogeneity are really poor and we often fall back on looking at the 'usual suspects'. There are lots of kinds of heterogeneity that might be of practical interest lurking out there and which we can't get at because we're not looking for it. The causal forest gives us a tool to find this.
+- I believe this is a massively underused method held back by a lack of understanding because it is complex (I'm working on that here), and a lack of clarity about how to integrate the method with the kinds of identification approaches used in many fields (for example, back quasi tooling in economics).
+
+* The causal forest and causal machine learning
+** Introduction to potential outcomes causal inference
+- There are a lot of different causal inference approaches across different fields. The dominant one in quantitative social science is Potential Outcomes. PO sees a causal effect as the difference between potential outcomes --- in the binary case we subtract Y(1) - Y(0).
+  - Note on Pearl
+  - Something on confounders?
+- We run into The Fundemental Problem of Causal Inference where we cannot observe Y(1) and Y(0) so we have to essentially guess at one of these. In practice, we do this by making estimates at an aggregated level (an average treatment effect) and using a combination of statistical modelling and assumptions about how people were sorted into the treatment or control groups to estimate this effect e.g.:
+  - That treatment was given randomly in an randomised controlled trial.
+  - That we can measure and control for all relevant confounders.
+- Importantly because we never observe the counterfactual we can never test these assumptions so the hardest part of causal inference is in making and defending these assumptions.
+  - To put it in machine learning parlance we never have 'ground truth data' though I'll come back to the implications of this later.
+- Treatment effect heterogeneity is about finding out how different kinds of people have different treatment effects. In the language of policy evaluation, who benefits more from a particular program, who benefits less?
+
+** Introducing causal machine learning
+*** What is machine learning and how is it different from regular statistics? Or, there's no such thing as 'machine learning'
+- We have a field called machine learning but there is nothing that intrinsically separates it from the kinds of statistical modelling techniques that we use in our work.
+  - Where we have something like linear regression model and a deep neural network like the transformer models that underpin an LLM on the other, it is hard to say where statistics ends and machine learning begins.
+  - The key difference here is a cultural one. Breiman in his 'two cultures of statistics' lays out two cultures, he calls them data modelling and algorithmic modelling but I think it is easier to think of them as explanatory and predictive modelling cultures. Several decades ago these two disciplines diverged into their own cultures with their own sets of problems.
+    - The predictive modeller wants to estimate a future outcome Y_hat.
+    - The explanatory modeller wants to estimate the effect of something Y(1) - Y(0).
+  - The real difference here is that in the first case they don't have the Fundamental Problem of Causal Inference while we do. This means they have ground truth and when you have ground-truth. It is common to train and test predictive models on old data where you already know what the outcome is, it's easily observed and so you have a really good sense of how well your predictions match the real quantity. Even if you don't have ground truth yet, you can wait and get some. For example, if you have a house price model you can make a prediction, wait until the house is sold and see how well the prediction matched. This let the predictive modellers develop really, really powerful methods that are hugely flexible because ultimately there is a clear error objective (e.g. mean squared error or more frequently a classification error).
+  - In explanatory statistics, our methods have largely stuck to well-behaved basic statistical models and a lot of our innovations have been about using these in new and interesting ways that better identify the causal effect. In econometrics for example, most of what we do still relies on linear models but uses them in clever ways like 2SLS, DiD, or RDD. We don't have the ground-truth to train a more powerful model so we need statistical properties like asymptotic unbiasedness and good error distribution.
+  - But because these cultures developed seperately in different areas for so long, it became difficult for one side to know if there were useful tools being made on the other side.
+  - At the moment we are starting to see cross-pollination here returning, for example, predictive learners have become interested in bringing techniques from explanatory statistics over into their own work in order to create predictions that are more portable (because causal mechanisms should be transportable across contexts), fair (counterfactual fairness), and generally robust than standard approaches. (Schölkopf, “Causality for ML”)
+  - On the other side, there is a whole lot of really interesting work on porting back over some of the powerful, flexible 'machine learning' techniques that have developed in the predictive culture for causal inference. The key word here is "flexible".
+
+*** An example of a machine learning algorithm - the random forest
+- It'll be helpful to introduce a reasonably simple predictive machine learning model so you understand the kind of methods that can be built off of for causal ML methods. A lot of causal machine learning approaches take a generic machine learning model and adapt them to give useful causal estimates. I'll introduce the random forest. There are a few reasons for this. It turns out the random forest has some really nice statistical properties that give really good statistical properties for causal inference. It is also very simple to fit with minimal hyperparameter tuning (actually the causal forest implementation we'll be talking about doesn't really need any tuning). Also, as you might have guessed from the name, the causal forest is closely related to the random forest, it is not agnostic to the underlying predictive model, it requires a modified random forest, so it is useful to know how the baseline thing works.
+- A random forest is what we call an ensemble model, it is made up of a bunch of models that we combine together. In this case it is a bunch of Classification and Regression Trees. I'll assume we're doing regression (predicting a continuous outcome) here not classification (picking a binary outcome).
+- A CART works by splitting data up according to a series of rules so that observations with similar outcomes end up together (in leaves). It does this by starting from the root node then splitting according to some kind of splitting rule. Here we'll use mean squared error (the kind of loss function that linear regression uses). (Show tree formation and partitioning side-by-side).
+- Once we've split a tree we end up with something we can use to make predictions on new data just by following the split rules from the node and seeing which leaf the datapoint ends up in.
+- Note with machine learning models it is generally bad practice to make predictions for a datapoint for the model it was fit on because models tend to overfit for that data. Instead, we should only predict out for new data that was not in our training dataset. However, the random forest has a cool way to get around this which I'll get back to in a second.
+- One tree is not a forest, the power of the random forest is really from growing a whole lot of trees and averaging together their predictions (Breiman). Random forests often use a few thousand trees or more. Really the more trees the better. If we just fit each tree on the same data though, the algorithm is deterministic so we'll end up with thousands of the same tree and if we average them together we'll get exactly the same results as if we'd just fit one tree. This is where the random part of the random forest comes in.
+- It turns out (see Breiman 1995, 1999) that we can get a much more robust model but training all the trees on slightly different subsets of the data and the variables then averaging these together. So for each tree we take a random set of variables and a random set of cases to train that tree. This gives us thousands of trees that all give different predictions and much more robust results when we average them out.
+
+*** Strands of causal machine learning
+- As already mentioned, there are two main things that machine learning methods are being asked to do.
+  - Firstly, to flexibly control for a series of control variables kind of like how we would in a linear regression but with no limit on functional form, number of variables, and allowing for arbitrary interactions. This is a control-on-observables approach. The most useful approach here is doubly machine learning, arguably using ML methods to estimate propensity scores or other weights. Others in McConnel, Dorie etc.. We'll come back to this later.
+    - Just because its machine learning does not magically mean things are identified with this. You still need to be observing all the relevant confounders.
+  - Secondly, to flexibly model treatment effect heterogeneity. This allows the estimation of treatment effects down to the individual level so I can get a treatment effect estimate that might be different for everyone. This is technically a conditional average treatment effect (CATE) estimate for people with a given set of X variables. These methods can find heterogeneity that we aren't expecting to find, give individual-level estimates for direct use, model heterogeneity in wide datasets, non-linear relationships, and allows for arbitrary interactions.
+    - There are a number of alternative methods here. The two main alternatives are meta-learner approaches like X-Learner or R-Learner which allow for the use of arbitrary underlying models kind of like double machine learning. Bayesian methods like the Bayesian Causal Forest (similar name, works very differently). For a comparison see (contest of these methods).
+
+
+
+* Basic causal forest usage
+** Basic outline of causal forest usage
+1) Causal identification
+2) Esimate out individual-level CATEs
+3) Extract insights from this
+
+
+* Using it in projects
+
+
+* Grab bag of other things
+** Rapid evaluation and monitoring
+** Policy learning
